@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+
+{% block title %}Scan / OCR - OCR Flashcard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .crop-container {
+        position: relative;
+        max-width: 100%;
+        margin: 1rem 0;
+    }
+    
+    .crop-area {
+        position: absolute;
+        border: 2px dashed var(--primary);
+        background: rgba(99, 102, 241, 0.1);
+        cursor: move;
+    }
+    
+    .processing {
+        text-align: center;
+        padding: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-camera"></i> Scan / OCR
+            </h2>
+        </div>
+
+        <!-- Upload Area -->
+        <div id="upload-section">
+            <div class="upload-area" id="upload-area">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <h3>Kéo thả ảnh vào đây hoặc click để chọn</h3>
+                <p style="color: var(--gray); margin-top: 0.5rem;">Hỗ trợ: JPG, PNG</p>
+                <input type="file" id="image-input" accept="image/*" style="display: none;">
+            </div>
+        </div>
+
+        <!-- Image Preview & Crop -->
+        <div id="preview-section" style="display: none;">
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <h3><i class="fas fa-image"></i> Ảnh đã upload</h3>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1rem;">
+                <div>
+                    <img id="preview-image" class="image-preview" alt="Preview" style="max-width: 100%; height: auto; border-radius: 0.5rem;">
+                </div>
+                <div id="ocr-preview" style="display: none; background: var(--light); padding: 1rem; border-radius: 0.5rem; max-height: 500px; overflow-y: auto;">
+                    <h4 style="margin-bottom: 1rem; color: var(--primary);"><i class="fas fa-text-width"></i> Kết quả OCR:</h4>
+                    <div id="ocr-lines" style="font-family: monospace; line-height: 1.8;"></div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                <button class="btn btn-outline" onclick="enableCrop()">
+                    <i class="fas fa-crop"></i> Crop vùng chứa chữ
+                </button>
+                <button class="btn btn-primary" onclick="performOCR()">
+                    <i class="fas fa-eye"></i> Nhận dạng ngay
+                </button>
+                <button class="btn btn-outline" onclick="resetUpload()">
+                    <i class="fas fa-redo"></i> Upload ảnh khác
+                </button>
+            </div>
+        </div>
+
+        <!-- OCR Result -->
+        <div id="ocr-section" style="display: none;">
+            <div class="ocr-result">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                    <h3><i class="fas fa-text-width"></i> Kết quả OCR (theo từng dòng)</h3>
+                    <button class="btn btn-sm btn-outline" onclick="editOCR()">
+                        <i class="fas fa-edit"></i> Chỉnh sửa
+                    </button>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <div>
+                        <h4 style="margin-bottom: 0.5rem; color: var(--gray);">Ảnh gốc:</h4>
+                        <img id="ocr-image-ref" class="image-preview" alt="Preview" style="max-width: 100%; height: auto; border-radius: 0.5rem;">
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom: 0.5rem; color: var(--gray);">Kết quả nhận dạng:</h4>
+                        <div id="ocr-text-lines" style="background: white; padding: 1rem; border-radius: 0.5rem; font-family: monospace; line-height: 2; max-height: 400px; overflow-y: auto; border: 2px solid var(--border);"></div>
+                    </div>
+                </div>
+                <div id="ocr-edit" style="display: none; margin-top: 1rem;">
+                    <textarea id="ocr-edit-input" style="width: 100%; padding: 1rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 1rem; min-height: 200px; font-family: monospace;"></textarea>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="btn btn-sm btn-primary" onclick="saveOCR()">Lưu</button>
+                        <button class="btn btn-sm btn-outline" onclick="cancelEdit()">Hủy</button>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-success" onclick="translateText()">
+                <i class="fas fa-language"></i> Tra nghĩa
+            </button>
+        </div>
+
+        <!-- Translation Result -->
+        <div id="translation-section" style="display: none;">
+            <div class="translation-result">
+                <h3><i class="fas fa-globe"></i> Nghĩa tiếng Việt</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem;">
+                    <div>
+                        <h4 style="margin-bottom: 0.5rem; color: var(--gray);">Tiếng Anh (theo dòng):</h4>
+                        <div id="translated-original" style="background: white; padding: 1rem; border-radius: 0.5rem; font-family: monospace; line-height: 2; max-height: 400px; overflow-y: auto; border: 2px solid var(--border);"></div>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom: 0.5rem; color: var(--gray);">Tiếng Việt:</h4>
+                        <div id="translated-text" style="background: white; padding: 1rem; border-radius: 0.5rem; font-size: 1.1rem; line-height: 1.8; max-height: 400px; overflow-y: auto; border: 2px solid var(--border);"></div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 1rem; text-align: center;">
+                <button class="btn btn-primary btn-lg" onclick="createFlashcard()">
+                    <i class="fas fa-plus-circle"></i> Tạo Flashcard
+                </button>
+            </div>
+        </div>
+
+        <!-- Processing Indicator -->
+        <div id="processing" class="processing" style="display: none;">
+            <div class="loading"></div>
+            <p style="margin-top: 1rem;">Đang xử lý...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentImage = null;
+let currentImagePath = null;
+let currentImageUrl = '';
+let ocrResult = '';
+let ocrLines = [];
+let translatedText = '';
+
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Get image from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const imageParam = urlParams.get('image');
+    if (imageParam) {
+        // Get path from server response if available
+        const pathMatch = window.location.search.match(/path=([^&]+)/);
+        if (pathMatch) {
+            currentImagePath = decodeURIComponent(pathMatch[1]);
+        }
+        loadImage(`/uploads/${imageParam}`);
+    }
+});
+
+// Upload area - wait for DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('upload-area');
+    const imageInput = document.getElementById('image-input');
+    
+    if (uploadArea) {
+        uploadArea.addEventListener('click', () => {
+            if (imageInput) {
+                imageInput.click();
+            }
+        });
+    }
+    
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                uploadImage(file);
+            }
+        });
+    }
+    
+    // Drag and drop
+    if (uploadArea) {
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                uploadImage(file);
+            }
+        });
+    }
+});
+
+function uploadImage(file) {
+    if (!file) {
+        showToast('Vui lòng chọn ảnh', 'error');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    showProcessing();
+    console.log('Uploading image:', file.name);
+    
+    fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => {
+        console.log('Upload response status:', res.status);
+        return res.json();
+    })
+    .then(data => {
+        console.log('Upload response data:', data);
+        if (data.success) {
+            currentImagePath = data.path || data.filename;
+            const imageUrl = data.url || `/uploads/${data.filename}`;
+            console.log('Loading image:', imageUrl);
+            // Load image immediately
+            loadImage(imageUrl);
+            showToast('Upload ảnh thành công!', 'success');
+        } else {
+            showToast(data.error || 'Lỗi upload ảnh', 'error');
+            hideProcessing();
+        }
+    })
+    .catch(err => {
+        console.error('Upload error:', err);
+        showToast('Lỗi upload ảnh: ' + (err.message || 'Unknown error'), 'error');
+        hideProcessing();
+    });
+}
+
+function loadImage(src) {
+    console.log('loadImage called with src:', src);
+    currentImageUrl = src;
+    const img = new Image();
+    
+    img.onload = function() {
+        console.log('Image loaded successfully:', src);
+        currentImage = img;
+        const previewImg = document.getElementById('preview-image');
+        if (previewImg) {
+            previewImg.src = src;
+            previewImg.style.display = 'block';
+            console.log('Preview image src set to:', src);
+        } else {
+            console.error('Preview image element not found');
+        }
+        
+        const uploadSection = document.getElementById('upload-section');
+        const previewSection = document.getElementById('preview-section');
+        
+        if (uploadSection) {
+            uploadSection.style.display = 'none';
+            console.log('Upload section hidden');
+        }
+        if (previewSection) {
+            previewSection.style.display = 'block';
+            console.log('Preview section shown');
+        }
+        hideProcessing();
+    };
+    
+    img.onerror = function() {
+        console.error('Error loading image:', src);
+        showToast('Lỗi tải ảnh. Vui lòng thử lại.', 'error');
+        hideProcessing();
+    };
+    
+    // Set src after setting up handlers
+    img.src = src;
+    console.log('Image src set, waiting for load...');
+}
+
+function enableCrop() {
+    // Simple crop implementation
+    showToast('Chức năng crop đang phát triển', 'info');
+}
+
+function performOCR() {
+    if (!currentImagePath) {
+        showToast('Vui lòng upload ảnh trước', 'error');
+        return;
+    }
+    
+    showProcessing();
+    console.log('Performing OCR on:', currentImagePath);
+    
+    fetch('/api/ocr', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({image_path: currentImagePath})
+    })
+    .then(res => {
+        console.log('OCR response status:', res.status);
+        return res.json();
+    })
+    .then(data => {
+        hideProcessing();
+        console.log('OCR response data:', data);
+        if (data.success) {
+            // Lưu kết quả
+            ocrResult = data.text || data.text_joined || '';
+            ocrLines = data.text_lines || data.text.split('\n').filter(l => l.trim());
+            
+            // Hiển thị trong preview
+            const ocrPreview = document.getElementById('ocr-preview');
+            const ocrLinesDiv = document.getElementById('ocr-lines');
+            if (ocrPreview && ocrLinesDiv) {
+                ocrLinesDiv.innerHTML = ocrLines.map((line, idx) => 
+                    `<div style="padding: 0.25rem 0; border-bottom: 1px solid rgba(0,0,0,0.1);">${idx + 1}. ${line}</div>`
+                ).join('');
+                ocrPreview.style.display = 'block';
+            }
+            
+            // Hiển thị trong section chi tiết
+            const ocrTextLines = document.getElementById('ocr-text-lines');
+            const ocrImageRef = document.getElementById('ocr-image-ref');
+            if (ocrTextLines) {
+                ocrTextLines.innerHTML = ocrLines.map((line, idx) => 
+                    `<div style="padding: 0.5rem; margin-bottom: 0.25rem; background: ${idx % 2 === 0 ? 'rgba(99, 102, 241, 0.05)' : 'white'}; border-left: 3px solid var(--primary);">${line}</div>`
+                ).join('');
+            }
+            if (ocrImageRef && currentImageUrl) {
+                ocrImageRef.src = currentImageUrl;
+            }
+            
+            const ocrSection = document.getElementById('ocr-section');
+            if (ocrSection) {
+                ocrSection.style.display = 'block';
+            }
+            showToast('OCR thành công!', 'success');
+        } else {
+            const errorMsg = data.error || 'Lỗi OCR';
+            console.error('OCR error:', errorMsg);
+            showToast(errorMsg, 'error');
+            
+            // Nếu là lỗi OneDNN, hiển thị hướng dẫn
+            if (errorMsg.includes('OneDNN') || errorMsg.includes('onednn')) {
+                showToast('Lỗi OneDNN. Vui lòng thử lại hoặc liên hệ hỗ trợ.', 'error');
+            }
+        }
+    })
+    .catch(err => {
+        hideProcessing();
+        console.error('OCR fetch error:', err);
+        showToast('Lỗi kết nối: ' + err.message, 'error');
+    });
+}
+
+function editOCR() {
+    const ocrEdit = document.getElementById('ocr-edit');
+    const ocrEditInput = document.getElementById('ocr-edit-input');
+    if (ocrEdit) {
+        ocrEdit.style.display = 'block';
+    }
+    if (ocrEditInput) {
+        ocrEditInput.value = ocrLines.join('\n');
+    }
+}
+
+function saveOCR() {
+    const ocrEditInput = document.getElementById('ocr-edit-input');
+    if (!ocrEditInput) return;
+    
+    const editedText = ocrEditInput.value.trim();
+    ocrLines = editedText.split('\n').filter(l => l.trim());
+    ocrResult = ocrLines.join('\n');
+    
+    // Cập nhật hiển thị
+    const ocrTextLines = document.getElementById('ocr-text-lines');
+    if (ocrTextLines) {
+        ocrTextLines.innerHTML = ocrLines.map((line, idx) => 
+            `<div style="padding: 0.5rem; margin-bottom: 0.25rem; background: ${idx % 2 === 0 ? 'rgba(99, 102, 241, 0.05)' : 'white'}; border-left: 3px solid var(--primary);">${line}</div>`
+        ).join('');
+    }
+    
+    const ocrLinesDiv = document.getElementById('ocr-lines');
+    if (ocrLinesDiv) {
+        ocrLinesDiv.innerHTML = ocrLines.map((line, idx) => 
+            `<div style="padding: 0.25rem 0; border-bottom: 1px solid rgba(0,0,0,0.1);">${idx + 1}. ${line}</div>`
+        ).join('');
+    }
+    
+    const ocrEdit = document.getElementById('ocr-edit');
+    if (ocrEdit) {
+        ocrEdit.style.display = 'none';
+    }
+    showToast('Đã lưu chỉnh sửa', 'success');
+}
+
+function cancelEdit() {
+    const ocrEdit = document.getElementById('ocr-edit');
+    if (ocrEdit) {
+        ocrEdit.style.display = 'none';
+    }
+}
+
+function translateText() {
+    if (!ocrResult && ocrLines.length === 0) {
+        showToast('Vui lòng OCR trước', 'error');
+        return;
+    }
+    
+    // Dịch từng dòng riêng biệt
+    const textToTranslate = ocrLines.join(' ') || ocrResult.replace(/\n/g, ' ');
+    
+    showProcessing();
+    
+    fetch('/api/translate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            text: textToTranslate,
+            lines: ocrLines  // Gửi cả danh sách các dòng để dịch riêng
+        })
+    })
+    .then(async res => {
+        // Kiểm tra content-type trước khi parse JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await res.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.');
+        }
+        return res.json();
+    })
+    .then(data => {
+        hideProcessing();
+        console.log('Translate response:', data);
+        if (data.success) {
+            translatedText = data.translated;
+            const translatedLines = data.translated_lines || [data.translated];
+            
+            // Lưu translatedLines vào window để dùng khi tạo flashcard
+            window.translatedLines = translatedLines;
+            
+            // Hiển thị tiếng Anh và tiếng Việt song song theo từng dòng
+            const translatedOriginal = document.getElementById('translated-original');
+            const translatedTextDiv = document.getElementById('translated-text');
+            const translationSection = document.getElementById('translation-section');
+            
+            if (translatedOriginal && translatedTextDiv && ocrLines.length > 0) {
+                // Đảm bảo số dòng khớp nhau
+                const maxLines = Math.max(ocrLines.length, translatedLines.length);
+                
+                // Hiển thị tiếng Anh với class để đồng bộ scroll
+                translatedOriginal.innerHTML = ocrLines.map((line, idx) => 
+                    `<div class="translation-line" data-line="${idx}" style="padding: 0.5rem; margin-bottom: 0.25rem; background: ${idx % 2 === 0 ? 'rgba(99, 102, 241, 0.05)' : 'white'}; border-left: 3px solid var(--primary); min-height: 2.5rem; display: flex; align-items: center;">${line}</div>`
+                ).join('');
+                
+                // Hiển thị tiếng Việt theo từng dòng tương ứng với cùng class và data-line
+                translatedTextDiv.innerHTML = translatedLines.map((line, idx) => 
+                    `<div class="translation-line" data-line="${idx}" style="padding: 0.5rem; margin-bottom: 0.25rem; background: ${idx % 2 === 0 ? 'rgba(34, 197, 94, 0.05)' : 'white'}; border-left: 3px solid #22c55e; min-height: 2.5rem; display: flex; align-items: center;">${line}</div>`
+                ).join('');
+                
+                // Đồng bộ scroll giữa 2 cột
+                let isScrolling = false;
+                translatedOriginal.addEventListener('scroll', function() {
+                    if (!isScrolling) {
+                        isScrolling = true;
+                        const scrollRatio = this.scrollTop / (this.scrollHeight - this.clientHeight);
+                        translatedTextDiv.scrollTop = scrollRatio * (translatedTextDiv.scrollHeight - translatedTextDiv.clientHeight);
+                        setTimeout(() => { isScrolling = false; }, 10);
+                    }
+                });
+                
+                translatedTextDiv.addEventListener('scroll', function() {
+                    if (!isScrolling) {
+                        isScrolling = true;
+                        const scrollRatio = this.scrollTop / (this.scrollHeight - this.clientHeight);
+                        translatedOriginal.scrollTop = scrollRatio * (translatedOriginal.scrollHeight - translatedOriginal.clientHeight);
+                        setTimeout(() => { isScrolling = false; }, 10);
+                    }
+                });
+            } else {
+                // Fallback nếu không có lines
+                if (translatedTextDiv) {
+                    translatedTextDiv.textContent = translatedText;
+                }
+            }
+            
+            if (translationSection) {
+                translationSection.style.display = 'block';
+            }
+            showToast('Dịch thành công!', 'success');
+        } else {
+            const errorMsg = data.error || 'Lỗi dịch';
+            console.error('Translate error:', errorMsg);
+            showToast(errorMsg, 'error');
+        }
+    })
+    .catch(err => {
+        hideProcessing();
+        console.error('Translate fetch error:', err);
+        let errorMsg = 'Lỗi kết nối khi dịch';
+        if (err.message) {
+            if (err.message.includes('JSON') || err.message.includes('<!doctype')) {
+                errorMsg = 'Lỗi: Server trả về dữ liệu không hợp lệ. Google Translate có thể bị tạm thời chặn. Vui lòng thử lại sau vài phút.';
+            } else if (err.message.includes('429') || err.message.includes('Too Many Requests')) {
+                errorMsg = 'Google Translate bị giới hạn. Vui lòng đợi vài phút rồi thử lại.';
+            } else {
+                errorMsg = 'Lỗi kết nối khi dịch: ' + err.message;
+            }
+        }
+        showToast(errorMsg, 'error');
+    });
+}
+
+function createFlashcard() {
+    if ((!ocrResult && ocrLines.length === 0) || !translatedText) {
+        showToast('Vui lòng OCR và dịch trước', 'error');
+        return;
+    }
+    
+    // Lấy danh sách các dòng đã dịch
+    const translatedLines = window.translatedLines || [];
+    
+    // Tạo flashcard cho từng dòng (1 từ = 1 thẻ)
+    showProcessing();
+    
+    fetch('/api/flashcard', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            original: ocrLines.join('\n') || ocrResult,
+            translated: translatedText,
+            original_lines: ocrLines,  // Gửi danh sách các dòng tiếng Anh
+            translated_lines: translatedLines,  // Gửi danh sách các dòng tiếng Việt
+            image_path: currentImagePath,
+            category: 'vocabulary'
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        hideProcessing();
+        if (data.success) {
+            const count = data.count || 1;
+            showToast(`Đã tạo thành công ${count} flashcard${count > 1 ? 's' : ''}!`, 'success');
+            setTimeout(() => {
+                window.location.href = '/flashcards';
+            }, 2000);
+        } else {
+            showToast(data.error || 'Lỗi tạo flashcard', 'error');
+        }
+    })
+    .catch(err => {
+        hideProcessing();
+        console.error('Flashcard creation error:', err);
+        showToast('Lỗi kết nối', 'error');
+    });
+}
+
+function showProcessing() {
+    const processing = document.getElementById('processing');
+    if (processing) {
+        processing.style.display = 'block';
+    }
+}
+
+function hideProcessing() {
+    const processing = document.getElementById('processing');
+    if (processing) {
+        processing.style.display = 'none';
+    }
+}
+
+function resetUpload() {
+    const uploadSection = document.getElementById('upload-section');
+    const previewSection = document.getElementById('preview-section');
+    const ocrSection = document.getElementById('ocr-section');
+    const translationSection = document.getElementById('translation-section');
+    const ocrPreview = document.getElementById('ocr-preview');
+    const imageInput = document.getElementById('image-input');
+    
+    if (uploadSection) uploadSection.style.display = 'block';
+    if (previewSection) previewSection.style.display = 'none';
+    if (ocrSection) ocrSection.style.display = 'none';
+    if (translationSection) translationSection.style.display = 'none';
+    if (ocrPreview) ocrPreview.style.display = 'none';
+    if (imageInput) imageInput.value = '';
+    
+    currentImage = null;
+    currentImagePath = null;
+    currentImageUrl = '';
+    ocrResult = '';
+    ocrLines = [];
+    translatedText = '';
+    window.translatedLines = [];
+}
+</script>
+{% endblock %}
+

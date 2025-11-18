@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Thông tin hệ thống - OCR Flashcard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .info-hero {
+        text-align: center;
+        padding: 3rem 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .info-hero h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .info-hero p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+    
+    .feature-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow);
+        transition: transform 0.3s;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .feature-icon {
+        font-size: 3rem;
+        color: var(--primary);
+        margin-bottom: 1rem;
+    }
+    
+    .process-flow {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 2rem 0;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .process-step {
+        flex: 1;
+        min-width: 150px;
+        text-align: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow);
+    }
+    
+    .process-step-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .tech-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: var(--light);
+        border-radius: 0.25rem;
+        margin: 0.25rem;
+        font-size: 0.9rem;
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: var(--gray);
+        font-size: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Hero Section -->
+    <div class="info-hero">
+        <h1><i class="fas fa-book-reader"></i> OCR Flashcard</h1>
+        <p>Hệ thống học từ vựng tiếng Anh thông minh</p>
+        <p style="font-size: 1rem; margin-top: 1rem; opacity: 0.8;">
+            Sử dụng công nghệ OCR để tự động tạo flashcard từ ảnh chữ viết tay
+        </p>
+    </div>
+
+    <!-- Process Flow -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-sitemap"></i> Quy trình hoạt động
+        </h2>
+        <div class="process-flow">
+            <div class="process-step">
+                <div class="process-step-icon">📸</div>
+                <div><strong>Upload ảnh</strong></div>
+                <div style="font-size: 0.9rem; color: var(--gray); margin-top: 0.5rem;">Chọn ảnh chứa từ vựng</div>
+            </div>
+            <div style="font-size: 2rem; color: var(--primary);">→</div>
+            <div class="process-step">
+                <div class="process-step-icon">🔍</div>
+                <div><strong>OCR nhận dạng</strong></div>
+                <div style="font-size: 0.9rem; color: var(--gray); margin-top: 0.5rem;">PaddleOCR PP-OCRv4</div>
+            </div>
+            <div style="font-size: 2rem; color: var(--primary);">→</div>
+            <div class="process-step">
+                <div class="process-step-icon">🌐</div>
+                <div><strong>Dịch tự động</strong></div>
+                <div style="font-size: 0.9rem; color: var(--gray); margin-top: 0.5rem;">Google Translate</div>
+            </div>
+            <div style="font-size: 2rem; color: var(--primary);">→</div>
+            <div class="process-step">
+                <div class="process-step-icon">🎴</div>
+                <div><strong>Tạo flashcard</strong></div>
+                <div style="font-size: 0.9rem; color: var(--gray); margin-top: 0.5rem;">1 từ = 1 thẻ</div>
+            </div>
+            <div style="font-size: 2rem; color: var(--primary);">→</div>
+            <div class="process-step">
+                <div class="process-step-icon">📚</div>
+                <div><strong>Học tập</strong></div>
+                <div style="font-size: 0.9rem; color: var(--gray); margin-top: 0.5rem;">Nhiều chế độ</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-star"></i> Tính năng chính
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-camera"></i></div>
+                <h3>Scan & Nhận dạng</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Upload ảnh chữ viết tay</li>
+                    <li>PaddleOCR PP-OCRv4</li>
+                    <li>Độ chính xác ~95%</li>
+                    <li>Hiển thị theo từng dòng</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-language"></i></div>
+                <h3>Dịch tự động</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Dịch từng dòng riêng biệt</li>
+                    <li>Tiếng Anh ↔ Tiếng Việt</li>
+                    <li>Tốc độ < 2 giây</li>
+                    <li>Hiển thị song song</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                <h3>AI Auto Flashcard Generator</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>1 từ = 1 thẻ tự động</li>
+                    <li>Tự động sinh ví dụ</li>
+                    <li>Dịch nghĩa ví dụ</li>
+                    <li>Phiên âm, từ loại, audio</li>
+                    <li>Từ đồng nghĩa, trái nghĩa</li>
+                    <li>Collocations</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-filter"></i></div>
+                <h3>Quản lý thông minh</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Lọc theo từ loại (noun/verb/adjective...)</li>
+                    <li>Lọc theo yêu thích</li>
+                    <li>Lọc đã học/chưa thuộc</li>
+                    <li>Tổng hợp số lượng</li>
+                    <li>Tìm kiếm nhanh</li>
+                    <li>Chỉnh sửa, xóa</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-graduation-cap"></i></div>
+                <h3>Học tập tương tác</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Chế độ trắc nghiệm</li>
+                    <li>Chế độ điền từ</li>
+                    <li>Lật thẻ nhanh</li>
+                    <li>Thống kê tiến độ</li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
+                <h3>Giao diện đẹp</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Responsive design</li>
+                    <li>Modern UI/UX</li>
+                    <li>Dễ sử dụng</li>
+                    <li>4 màn hình chính</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-chart-bar"></i> Thống kê hệ thống
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+            <div class="stat-box">
+                <div class="stat-value">~95%</div>
+                <div class="stat-label">Độ chính xác OCR</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">< 2s</div>
+                <div class="stat-label">Tốc độ dịch</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">30+</div>
+                <div class="stat-label">Tính năng</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Màn hình chính</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">1:1</div>
+                <div class="stat-label">Tỷ lệ từ:thẻ</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technology Stack -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-code"></i> Công nghệ sử dụng
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+            <div>
+                <h3><i class="fas fa-server"></i> Backend</h3>
+                <div style="margin-top: 1rem;">
+                    <span class="tech-badge">Python 3.11+</span>
+                    <span class="tech-badge">Flask</span>
+                    <span class="tech-badge">PaddleOCR PP-OCRv4</span>
+                    <span class="tech-badge">PaddlePaddle</span>
+                    <span class="tech-badge">googletrans</span>
+                    <span class="tech-badge">Dictionary API</span>
+                    <span class="tech-badge">AI Example Generator</span>
+                </div>
+            </div>
+            <div>
+                <h3><i class="fas fa-paint-brush"></i> Frontend</h3>
+                <div style="margin-top: 1rem;">
+                    <span class="tech-badge">HTML5</span>
+                    <span class="tech-badge">CSS3</span>
+                    <span class="tech-badge">JavaScript</span>
+                    <span class="tech-badge">Font Awesome</span>
+                </div>
+            </div>
+            <div>
+                <h3><i class="fas fa-cog"></i> Đặc điểm kỹ thuật</h3>
+                <div style="margin-top: 1rem;">
+                    <span class="tech-badge">OneDNN Disabled</span>
+                    <span class="tech-badge">Inference Model</span>
+                    <span class="tech-badge">Local Storage</span>
+                    <span class="tech-badge">CPU Optimized</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screens -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-desktop"></i> Giao diện hệ thống
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-home"></i></div>
+                <h3>Trang chủ</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Upload/Scan ảnh</li>
+                    <li>Tìm kiếm từ</li>
+                    <li>Flashcard gần đây</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-camera"></i></div>
+                <h3>Scan/OCR</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Preview ảnh</li>
+                    <li>Kết quả OCR</li>
+                    <li>Dịch tự động</li>
+                    <li>Tạo flashcard</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-layer-group"></i></div>
+                <h3>Flashcard</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Hiển thị 1 thẻ tại 1 thời điểm</li>
+                    <li>Navigation: Trước/Sau</li>
+                    <li>Lật thẻ xem chi tiết</li>
+                    <li>AI Auto Generator info</li>
+                    <li>Lọc, tìm kiếm</li>
+                    <li>Đánh dấu đã học/chưa thuộc</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-graduation-cap"></i></div>
+                <h3>Học tập</h3>
+                <ul style="margin-left: 1.5rem; line-height: 1.8; margin-top: 1rem;">
+                    <li>Trắc nghiệm</li>
+                    <li>Điền từ</li>
+                    <li>Lật thẻ nhanh</li>
+                    <li>Thống kê</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- How to Use -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-question-circle"></i> Hướng dẫn sử dụng
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            <div class="feature-card">
+                <div class="feature-icon">1️⃣</div>
+                <h3>Upload ảnh</h3>
+                <p>Chọn ảnh chứa từ vựng tiếng Anh từ máy tính hoặc chụp ảnh trực tiếp</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">2️⃣</div>
+                <h3>Nhận dạng</h3>
+                <p>Click "Nhận dạng ngay" để hệ thống OCR tự động nhận dạng từ vựng</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">3️⃣</div>
+                <h3>Tra nghĩa</h3>
+                <p>Click "Tra nghĩa" để dịch tự động sang tiếng Việt</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">4️⃣</div>
+                <h3>Tạo flashcard</h3>
+                <p>Click "Tạo Flashcard" để tự động tạo thẻ học (1 từ = 1 thẻ)</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">5️⃣</div>
+                <h3>Quản lý</h3>
+                <p>Vào "Flashcard" để xem, lọc, chỉnh sửa các thẻ đã tạo</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">6️⃣</div>
+                <h3>Học tập</h3>
+                <p>Vào "Học tập" để ôn tập với nhiều chế độ: trắc nghiệm, điền từ, lật thẻ</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Highlights -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-lightbulb"></i> Điểm nổi bật
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <div style="padding: 1rem; background: var(--light); border-radius: 0.5rem;">
+                <strong>✅ Tự động hóa:</strong> Scan → OCR → Dịch → Flashcard (1 click)
+            </div>
+            <div style="padding: 1rem; background: var(--light); border-radius: 0.5rem;">
+                <strong>✅ Chính xác:</strong> OCR ~95%, dịch chính xác
+            </div>
+            <div style="padding: 1rem; background: var(--light); border-radius: 0.5rem;">
+                <strong>✅ Nhanh chóng:</strong> Tạo nhiều flashcard cùng lúc
+            </div>
+            <div style="padding: 1rem; background: var(--light); border-radius: 0.5rem;">
+                <strong>✅ Dễ sử dụng:</strong> Giao diện trực quan, không cần hướng dẫn
+            </div>
+            <div style="padding: 1rem; background: var(--light); border-radius: 0.5rem;">
+                <strong>✅ Quản lý tốt:</strong> Lọc, tìm kiếm, yêu thích
+            </div>
+            <div style="padding: 1rem; background: var(--light); border-radius: 0.5rem;">
+                <strong>✅ Học tập hiệu quả:</strong> Nhiều chế độ ôn tập
+            </div>
+        </div>
+    </div>
+
+    <!-- Target Users -->
+    <div class="card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">
+            <i class="fas fa-users"></i> Đối tượng sử dụng
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-user-graduate"></i></div>
+                <h3>Học sinh</h3>
+                <p>Scan bài tập từ vựng → Tạo flashcard để học</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-user-tie"></i></div>
+                <h3>Sinh viên</h3>
+                <p>Scan tài liệu tiếng Anh → Học từ mới hiệu quả</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+                <h3>Giáo viên</h3>
+                <p>Tạo flashcard nhanh để dạy học</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fas fa-book-reader"></i></div>
+                <h3>Người tự học</h3>
+                <p>Ôn tập từ vựng hàng ngày</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Info -->
+    <div class="card" style="text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <h2 style="margin-bottom: 1rem;">
+            <i class="fas fa-rocket"></i> OCR Flashcard
+        </h2>
+        <p style="font-size: 1.2rem; margin-bottom: 1rem;">Học từ vựng thông minh, hiệu quả!</p>
+        <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-top: 2rem;">
+            <div>
+                <strong>Version:</strong> 1.0.0
+            </div>
+            <div>
+                <strong>Năm:</strong> 2025
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

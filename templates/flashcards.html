@@ -1,0 +1,1102 @@
+{% extends "base.html" %}
+
+{% block title %}Flashcard - OCR Flashcard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .flashcard-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .part-of-speech-badge {
+        background: rgba(255,255,255,0.3);
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .flashcard-single {
+        display: none;
+    }
+    
+    .flashcard-single.active {
+        display: block;
+    }
+    
+    .flashcard-single.hidden {
+        display: none;
+    }
+    
+    /* List view - hiển thị tất cả cards */
+    #flashcard-display.list-view {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    #flashcard-display.list-view .flashcard-single {
+        display: block !important;
+    }
+    
+    #flashcard-display.list-view .flashcard-single.hidden {
+        display: none !important;
+    }
+    
+    #flashcard-display.list-view .flashcard-single.active {
+        display: block !important;
+    }
+    
+    #flashcard-display {
+        position: relative;
+        min-height: 500px;
+    }
+    
+    #flashcard-display .flashcard {
+        width: 100%;
+        max-width: 700px;
+        margin: 0 auto;
+        perspective: 1000px;
+        height: 500px;
+    }
+    
+    #flashcard-display .flashcard-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform 0.6s;
+        transform-style: preserve-3d;
+    }
+    
+    #flashcard-display .flashcard.flipped .flashcard-inner {
+        transform: rotateY(180deg);
+    }
+    
+    .flashcard-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .flashcard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .flashcard-card.flipped {
+        transform: rotateY(180deg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-layer-group"></i> Flashcard
+            </h2>
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <select id="category-filter" class="btn btn-outline" style="padding: 0.5rem 1rem; min-width: 150px;">
+                    <option value="">Tất cả</option>
+                    <option value="noun">Danh từ (noun)</option>
+                    <option value="verb">Động từ (verb)</option>
+                    <option value="adjective">Tính từ (adjective)</option>
+                    <option value="adverb">Trạng từ (adverb)</option>
+                    <option value="pronoun">Đại từ (pronoun)</option>
+                    <option value="preposition">Giới từ (preposition)</option>
+                    <option value="conjunction">Liên từ (conjunction)</option>
+                    <option value="interjection">Thán từ (interjection)</option>
+                </select>
+                <button id="favorite-btn" class="btn btn-outline" onclick="toggleFavorites()" style="padding: 0.5rem 1rem;">
+                    <i class="fas fa-heart"></i> Yêu thích
+                </button>
+                <button id="learned-btn" class="btn btn-outline" onclick="toggleLearned()" style="padding: 0.5rem 1rem;">
+                    <i class="fas fa-check-circle"></i> Đã học
+                </button>
+                <button id="not-learned-btn" class="btn btn-outline" onclick="toggleNotLearned()" style="padding: 0.5rem 1rem;">
+                    <i class="fas fa-times-circle"></i> Chưa thuộc
+                </button>
+                <div id="filter-count" style="color: var(--gray); font-size: 0.9rem;">
+                    Hiển thị: <span id="count-number">{{ flashcards|length }}</span> thẻ | 
+                    Đã học: <span id="learned-count">0</span> | 
+                    Chưa thuộc: <span id="not-learned-count">0</span>
+                </div>
+                <button class="btn btn-outline" onclick="deleteAllFlashcards()" style="padding: 0.5rem 1rem; color: var(--danger); border-color: var(--danger);">
+                    <i class="fas fa-trash-alt"></i> Xóa tất cả
+                </button>
+            </div>
+        </div>
+
+        <!-- Flashcard List View với Navigation -->
+        <div id="flashcard-container" style="max-width: 800px; margin: 0 auto;">
+            {% if flashcards %}
+            <!-- Navigation -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <button id="prev-btn" class="btn btn-outline" onclick="previousCard()" style="padding: 0.75rem 1.5rem; min-width: 120px;">
+                    <i class="fas fa-chevron-left"></i> Trước
+                </button>
+                <div style="text-align: center;">
+                    <div id="card-counter" style="font-size: 1.2rem; font-weight: bold; color: var(--primary);">
+                        <span id="current-index">1</span> / <span id="total-count">{{ flashcards|length }}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--gray); margin-top: 0.25rem;">Click thẻ để lật</div>
+                </div>
+                <button id="next-btn" class="btn btn-outline" onclick="nextCard()" style="padding: 0.75rem 1.5rem; min-width: 120px;">
+                    Sau <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+
+            <!-- Single Flashcard Display -->
+            <div id="flashcard-display">
+                {% for card in flashcards %}
+                <div class="flashcard-single {% if (request.args.get('id') and card.id|string == request.args.get('id')) or (not request.args.get('id') and loop.index == 1) %}active{% else %}hidden{% endif %}" 
+                     data-id="{{ card.id }}" 
+                     data-index="{{ loop.index0 }}"
+                     data-category="{{ card.part_of_speech or card.category or 'noun' }}"
+                     data-favorite="{{ 'true' if card.favorite else 'false' }}"
+                     data-learned="{{ 'true' if card.get('learned') else 'false' }}"
+                     data-not-learned="{{ 'true' if card.get('not_learned') else 'false' }}">
+                    <div class="flashcard">
+                        <div class="flashcard-inner">
+                            <div class="flashcard-front">
+                            <div style="position: absolute; top: 1rem; right: 1rem; z-index: 10;">
+                                <span class="part-of-speech-badge">{{ card.part_of_speech or 'noun' }}</span>
+                            </div>
+                            <div style="position: absolute; top: 1rem; left: 1rem; z-index: 10;">
+                                <button class="btn btn-sm" onclick="event.stopPropagation(); toggleFavorite({{ card.id }})" style="background: rgba(255,255,255,0.2); color: {{ 'red' if card.favorite else 'white' }};">
+                                    <i class="fas fa-heart{{ '' if card.favorite else '-o' }}"></i>
+                                </button>
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 2rem;">
+                                <div class="flashcard-word" style="font-size: 4rem; font-weight: bold; margin-bottom: 1.5rem; text-align: center; word-break: break-word; line-height: 1.2;">
+                                    {{ card.original }}
+                                </div>
+                                {% if card.pronunciation %}
+                                <div style="font-size: 1.8rem; opacity: 0.95; margin-top: 0.5rem; font-style: italic; color: rgba(255,255,255,0.95); text-align: center;">
+                                    {{ card.pronunciation }}
+                                </div>
+                                {% endif %}
+                                {% if card.audio %}
+                                <button onclick="event.stopPropagation(); playAudio('{{ card.audio }}')" style="margin-top: 2rem; background: rgba(255,255,255,0.25); border: none; color: white; padding: 1rem 2rem; border-radius: 0.5rem; cursor: pointer; font-size: 1.1rem; font-weight: bold;">
+                                    <i class="fas fa-volume-up"></i> Phát âm
+                                </button>
+                                {% else %}
+                                <div style="font-size: 1.1rem; opacity: 0.8; margin-top: 2rem;">
+                                    <i class="fas fa-volume-up"></i> Phát âm
+                                </div>
+                                {% endif %}
+                                <div style="margin-top: 2rem; font-size: 1rem; opacity: 0.9; text-align: center; font-weight: 500;">
+                                    <i class="fas fa-hand-pointer"></i> Click để xem chi tiết
+                                </div>
+                            </div>
+                            <div class="flashcard-actions" style="position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 10;">
+                                <button class="btn btn-sm" onclick="event.stopPropagation(); editFlashcard({{ card.id }})" style="background: rgba(255,255,255,0.2); color: white; margin: 0 0.25rem;">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm" onclick="event.stopPropagation(); deleteFlashcard({{ card.id }})" style="background: rgba(255,255,255,0.2); color: white; margin: 0 0.25rem;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="btn btn-sm" onclick="event.stopPropagation(); markLearned({{ card.id }})" style="background: rgba(255,255,255,0.2); color: white; margin: 0 0.25rem;" title="Đã học">
+                                    <i class="fas fa-check-circle"></i>
+                                </button>
+                                <button class="btn btn-sm" onclick="event.stopPropagation(); markNotLearned({{ card.id }})" style="background: rgba(255,255,255,0.2); color: white; margin: 0 0.25rem;" title="Chưa thuộc">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flashcard-back">
+                            <div style="max-height: 500px; overflow-y: auto; width: 100%; padding: 0 0.5rem;">
+                                <!-- AI Auto Flashcard Generator Badge -->
+                                <div style="text-align: center; margin-bottom: 1rem;">
+                                    <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 1rem; font-size: 0.85rem; font-weight: bold;">
+                                        <i class="fas fa-robot"></i> AI Auto Flashcard Generator
+                                    </span>
+                                </div>
+
+                                <!-- Từ OCR -->
+                                <div style="text-align: center; margin-bottom: 1.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">Từ OCR được nhận dạng:</div>
+                                    <div style="font-size: 2rem; font-weight: bold;">{{ card.original }}</div>
+                                </div>
+
+                                <!-- Nghĩa tiếng Việt -->
+                                <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">Nghĩa tiếng Việt:</div>
+                                    <div class="flashcard-meaning" style="font-size: 1.8rem; font-weight: bold;">{{ card.translated }}</div>
+                                </div>
+
+                                <!-- Phiên âm -->
+                                {% if card.pronunciation %}
+                                <div style="text-align: center; margin-bottom: 1.5rem; padding: 0.75rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">Phiên âm:</div>
+                                    <div style="font-size: 1.5rem; font-style: italic;">{{ card.pronunciation }}</div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Ví dụ -->
+                                <div style="margin-bottom: 1.5rem; padding: 1.5rem; background: rgba(255,255,255,0.15); border-radius: 0.5rem; border-left: 4px solid rgba(255,255,255,0.8);">
+                                    <div style="font-size: 1rem; opacity: 0.95; margin-bottom: 1rem; font-weight: bold;">
+                                        <i class="fas fa-quote-left"></i> Ví dụ:
+                                    </div>
+                                    {% if card.example %}
+                                    <div style="font-size: 1.2rem; line-height: 1.8; font-style: italic; text-align: left; margin-bottom: 0.75rem;">
+                                        "{{ card.example }}"
+                                    </div>
+                                    {% if card.example_translated %}
+                                    <div style="font-size: 1rem; line-height: 1.6; text-align: left; opacity: 0.9; padding-top: 0.5rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                                        <i class="fas fa-language" style="margin-right: 0.5rem;"></i>{{ card.example_translated }}
+                                    </div>
+                                    {% endif %}
+                                    {% else %}
+                                    <div style="font-size: 1rem; line-height: 1.6; opacity: 0.7; font-style: italic;">
+                                        <i class="fas fa-info-circle"></i> Chưa có ví dụ cho từ này
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Audio phát âm -->
+                                {% if card.audio %}
+                                <div style="text-align: center; margin-bottom: 1.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">Audio phát âm:</div>
+                                    <button onclick="event.stopPropagation(); playAudio('{{ card.audio }}')" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; cursor: pointer; font-size: 1rem;">
+                                        <i class="fas fa-volume-up"></i> Phát âm
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                <!-- Từ đồng nghĩa -->
+                                {% if card.synonyms and card.synonyms|length > 0 %}
+                                <div style="margin-bottom: 1.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.75rem;"><i class="fas fa-sync"></i> Từ đồng nghĩa:</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;">
+                                        {% for syn in card.synonyms[:8] %}
+                                        <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.9rem;">{{ syn }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Từ trái nghĩa -->
+                                {% if card.antonyms and card.antonyms|length > 0 %}
+                                <div style="margin-bottom: 1.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.75rem;"><i class="fas fa-exchange-alt"></i> Từ trái nghĩa:</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;">
+                                        {% for ant in card.antonyms[:8] %}
+                                        <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.9rem;">{{ ant }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Collocations -->
+                                {% if card.collocations and card.collocations|length > 0 %}
+                                <div style="margin-bottom: 1.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.75rem;"><i class="fas fa-link"></i> Collocations:</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;">
+                                        {% for coll in card.collocations[:8] %}
+                                        <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.9rem;">{{ coll }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Notes -->
+                                {% if card.notes %}
+                                <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.1); border-radius: 0.5rem;">
+                                    <div style="font-size: 0.9rem; opacity: 0.9;"><i class="fas fa-info-circle"></i> {{ card.notes }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="flashcard-actions" style="margin-top: 1rem; position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%);">
+                                <button class="btn btn-sm" onclick="event.stopPropagation(); addToQuiz({{ card.id }})" style="background: rgba(255,255,255,0.2); color: white;">
+                                    <i class="fas fa-question-circle"></i> Quiz
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+
+            {% endif %}
+            
+            {% if not flashcards %}
+            <div style="text-align: center; padding: 4rem; color: var(--gray);">
+                <i class="fas fa-inbox" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p>Chưa có flashcard nào. Hãy bắt đầu scan từ vựng!</p>
+                <a href="/scan" class="btn btn-primary" style="margin-top: 1rem;">
+                    <i class="fas fa-camera"></i> Scan ngay
+                </a>
+            </div>
+            {% endif %}
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 500px; margin: 2rem;">
+        <div class="card-header">
+            <h3>Chỉnh sửa Flashcard</h3>
+            <button onclick="closeEditModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 1rem;">
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Từ tiếng Anh</label>
+                <input type="text" id="edit-original" class="search-input" style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Nghĩa tiếng Việt</label>
+                <input type="text" id="edit-translated" class="search-input" style="width: 100%;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Ghi chú</label>
+                <textarea id="edit-notes" class="search-input" style="width: 100%; min-height: 100px;"></textarea>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-primary" onclick="saveEdit()">Lưu</button>
+                <button class="btn btn-outline" onclick="closeEditModal()">Hủy</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentEditId = null;
+let showFavoritesOnly = false;
+let showLearnedOnly = false;
+let showNotLearnedOnly = false;
+let currentCardIndex = 0;
+let allCards = []; // Chứa visible cards sau khi filter
+let allCardsOriginal = []; // Chứa tất cả cards từ DOM (không filter)
+
+// Khởi tạo filter khi trang load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 Initializing flashcard page...');
+    
+    // Lấy tất cả flashcard
+    allCardsOriginal = Array.from(document.querySelectorAll('.flashcard-single'));
+    allCards = [...allCardsOriginal]; // Copy ban đầu
+    console.log(`📚 Found ${allCardsOriginal.length} flashcard(s) in DOM`);
+    
+    if (allCardsOriginal.length === 0) {
+        console.warn('⚠️  No flashcards found in DOM');
+        return;
+    }
+    
+    // Sử dụng event delegation - chỉ thêm listener một lần cho container
+    const flashcardDisplay = document.getElementById('flashcard-display');
+    if (flashcardDisplay) {
+        // Kiểm tra xem đã có listener chưa (tránh thêm nhiều lần)
+        if (!flashcardDisplay.hasAttribute('data-listener-added')) {
+            flashcardDisplay.setAttribute('data-listener-added', 'true');
+            
+            // Thêm event listener một lần cho container (event delegation)
+            flashcardDisplay.addEventListener('click', function(e) {
+                // Chỉ xử lý khi click vào .flashcard
+                const flashcard = e.target.closest('.flashcard');
+                if (!flashcard) return;
+                
+                // Nếu click vào button hoặc action, không lật thẻ
+                if (e.target.closest('button') || e.target.closest('.flashcard-actions')) {
+                    return;
+                }
+                
+                flipCurrentCard(e);
+            });
+        }
+    }
+    
+    // Category filter event listener
+    const categoryFilter = document.getElementById('category-filter');
+    if (categoryFilter) {
+        // Kiểm tra xem đã có listener chưa
+        if (!categoryFilter.hasAttribute('data-listener-added')) {
+            categoryFilter.setAttribute('data-listener-added', 'true');
+            categoryFilter.addEventListener('change', function(e) {
+                filterFlashcards(e.target.value);
+            });
+        }
+    }
+    
+    // Lấy filter từ URL nếu có
+    const urlParams = new URLSearchParams(window.location.search);
+    const category = urlParams.get('category');
+    const favorite = urlParams.get('favorite');
+    const cardId = urlParams.get('id');
+    
+    if (category && categoryFilter) {
+        categoryFilter.value = category;
+    }
+    if (favorite === 'true') {
+        showFavoritesOnly = true;
+        const btn = document.getElementById('favorite-btn');
+        if (btn) {
+            btn.style.background = 'var(--primary)';
+            btn.style.color = 'white';
+        }
+    }
+    
+    // Tính tổng hợp ban đầu
+    updateSummary();
+    
+    // Áp dụng filter ban đầu (mặc định sẽ hiển thị list view nếu không có category filter)
+    filterFlashcards();
+    
+    // Đảm bảo navigation luôn được hiển thị (single card view với navigation)
+    const navigationDiv = document.querySelector('#flashcard-container > div:first-child');
+    if (navigationDiv) {
+        navigationDiv.style.display = 'flex'; // Luôn hiển thị navigation
+    }
+    
+    // Nếu có cardId, tìm và hiển thị card đó sau khi filter
+    setTimeout(() => {
+        if (cardId) {
+            // Tìm trong allCards đã được filter
+            const targetIndex = allCards.findIndex(card => card && card.dataset.id === cardId);
+            if (targetIndex >= 0) {
+                showCard(targetIndex);
+            } else if (allCards.length > 0) {
+                showCard(0);
+            }
+        } else if (allCards.length > 0) {
+            showCard(0);
+        }
+    }, 100);
+});
+
+function updateSummary() {
+    // Dùng allCardsOriginal để tính tổng hợp (tất cả cards, không chỉ visible)
+    let learnedCount = 0;
+    let notLearnedCount = 0;
+    allCardsOriginal.forEach(card => {
+        if (card && card.dataset.learned === 'true') learnedCount++;
+        if (card && card.dataset.notLearned === 'true') notLearnedCount++;
+    });
+    const learnedEl = document.getElementById('learned-count');
+    const notLearnedEl = document.getElementById('not-learned-count');
+    if (learnedEl) learnedEl.textContent = learnedCount;
+    if (notLearnedEl) notLearnedEl.textContent = notLearnedCount;
+}
+
+// Flip flashcard function
+function flipCurrentCard(event) {
+    // Nếu có event, tìm flashcard từ event target
+    let flashcard = null;
+    if (event) {
+        // Tìm element .flashcard gần nhất từ event target
+        flashcard = event.target.closest('.flashcard');
+    }
+    
+    // Nếu không tìm được, tìm từ active card
+    if (!flashcard) {
+        const activeCard = document.querySelector('.flashcard-single.active');
+        if (activeCard) {
+            flashcard = activeCard.querySelector('.flashcard');
+        }
+    }
+    
+    if (flashcard) {
+        flashcard.classList.toggle('flipped');
+    } else {
+        console.error('Không tìm thấy flashcard để lật');
+    }
+}
+
+// Category filter - đã được gộp vào DOMContentLoaded chính ở trên
+
+function toggleFavorites() {
+    showFavoritesOnly = !showFavoritesOnly;
+    const btn = document.getElementById('favorite-btn');
+    if (showFavoritesOnly) {
+        btn.style.background = 'var(--primary)';
+        btn.style.color = 'white';
+    } else {
+        btn.style.background = '';
+        btn.style.color = '';
+    }
+    filterFlashcards();
+}
+
+function toggleLearned() {
+    showLearnedOnly = !showLearnedOnly;
+    showNotLearnedOnly = false; // Tắt filter chưa thuộc
+    const btn = document.getElementById('learned-btn');
+    const notLearnedBtn = document.getElementById('not-learned-btn');
+    if (showLearnedOnly) {
+        btn.style.background = '#10b981';
+        btn.style.color = 'white';
+    } else {
+        btn.style.background = '';
+        btn.style.color = '';
+    }
+    if (notLearnedBtn) {
+        notLearnedBtn.style.background = '';
+        notLearnedBtn.style.color = '';
+    }
+    filterFlashcards();
+}
+
+function toggleNotLearned() {
+    showNotLearnedOnly = !showNotLearnedOnly;
+    showLearnedOnly = false; // Tắt filter đã học
+    const btn = document.getElementById('not-learned-btn');
+    const learnedBtn = document.getElementById('learned-btn');
+    if (showNotLearnedOnly) {
+        btn.style.background = '#ef4444';
+        btn.style.color = 'white';
+    } else {
+        btn.style.background = '';
+        btn.style.color = '';
+    }
+    if (learnedBtn) {
+        learnedBtn.style.background = '';
+        learnedBtn.style.color = '';
+    }
+    filterFlashcards();
+}
+
+function filterFlashcards(category = null) {
+    const categoryFilterEl = document.getElementById('category-filter');
+    if (!categoryFilterEl) {
+        console.error('Category filter element not found');
+        return;
+    }
+    
+    const categoryFilter = category !== null ? category : categoryFilterEl.value;
+    let visibleCards = [];
+    
+    // Luôn dùng allCardsOriginal để filter (tất cả cards từ DOM)
+    // Cập nhật allCardsOriginal từ DOM trước khi filter để đảm bảo data attributes mới nhất
+    const flashcardDisplayEl = document.getElementById('flashcard-display');
+    if (flashcardDisplayEl) {
+        allCardsOriginal = Array.from(flashcardDisplayEl.querySelectorAll('.flashcard-single'));
+    } else {
+        allCardsOriginal = Array.from(document.querySelectorAll('.flashcard-single'));
+    }
+    
+    console.log(`🔍 Filtering ${allCardsOriginal.length} cards with category: ${categoryFilter || 'all'}`);
+    
+    allCardsOriginal.forEach(card => {
+        // Dùng part_of_speech thay vì category
+        const cardPartOfSpeech = card.dataset.category || 'noun';
+        const isFavorite = card.dataset.favorite === 'true';
+        const isLearned = card.dataset.learned === 'true';
+        const isNotLearned = card.dataset.notLearned === 'true';
+        
+        // Kiểm tra filter part of speech
+        // Nếu categoryFilter là rỗng hoặc null, hiển thị tất cả (matchCategory = true)
+        let matchCategory = true;
+        if (categoryFilter && categoryFilter !== '' && categoryFilter !== 'all') {
+            matchCategory = cardPartOfSpeech === categoryFilter;
+        }
+        
+        // Kiểm tra filter favorite
+        let matchFavorite = true;
+        if (showFavoritesOnly) {
+            matchFavorite = isFavorite;
+        }
+        
+        // Kiểm tra filter learned
+        let matchLearned = true;
+        if (showLearnedOnly) {
+            // Chỉ hiển thị card có learned = true và not_learned = false
+            matchLearned = isLearned && !isNotLearned;
+        }
+        
+        // Kiểm tra filter not learned
+        let matchNotLearned = true;
+        if (showNotLearnedOnly) {
+            // Chỉ hiển thị card có not_learned = true và learned = false
+            matchNotLearned = isNotLearned && !isLearned;
+        }
+        
+        // Nếu không có filter learned/not learned nào active, hiển thị tất cả
+        if (!showLearnedOnly && !showNotLearnedOnly) {
+            matchLearned = true;
+            matchNotLearned = true;
+        }
+        
+        // Lưu card nếu match tất cả filters
+        if (matchCategory && matchFavorite && matchLearned && matchNotLearned) {
+            visibleCards.push(card);
+        }
+    });
+    
+    // Cập nhật số lượng hiển thị
+    const countNumberEl = document.getElementById('count-number');
+    const totalCountEl = document.getElementById('total-count');
+    if (countNumberEl) countNumberEl.textContent = visibleCards.length;
+    if (totalCountEl) totalCountEl.textContent = visibleCards.length;
+    
+    // Cập nhật allCards để chỉ chứa visible cards (sau khi filter)
+    allCards = visibleCards;
+    
+    // Cập nhật tổng hợp (dùng allCardsOriginal - tất cả cards từ DOM)
+    updateSummary();
+    console.log(`✅ Filtered to ${visibleCards.length} visible cards`);
+    
+    // Luôn dùng single card view với navigation (Trước-Sau)
+    const flashcardDisplay = document.getElementById('flashcard-display');
+    const navigationDiv = document.querySelector('#flashcard-container > div:first-child'); // Navigation div
+    
+    if (flashcardDisplay) {
+        flashcardDisplay.classList.remove('list-view'); // Đảm bảo không dùng list view
+    }
+    if (navigationDiv) {
+        navigationDiv.style.display = 'flex'; // Luôn hiển thị navigation
+    }
+    
+    if (visibleCards.length > 0) {
+        // Ẩn tất cả cards trước
+        const allCardsInDOM = document.querySelectorAll('.flashcard-single');
+        allCardsInDOM.forEach(card => {
+            if (card) {
+                card.classList.remove('active');
+                card.classList.add('hidden');
+            }
+        });
+        
+        // Hiển thị card đầu tiên trong danh sách visible (single card view với navigation)
+        currentCardIndex = 0;
+        setTimeout(() => {
+            if (allCards.length > 0 && allCards[0]) {
+                showCard(0);
+            }
+        }, 10);
+    } else {
+        // Hiển thị thông báo không có kết quả
+        const container = document.getElementById('flashcard-container');
+        const flashcardDisplay = document.getElementById('flashcard-display');
+        
+        if (flashcardDisplay) {
+            flashcardDisplay.style.display = 'none';
+        }
+        
+        let noResultsMsg = document.getElementById('no-results-msg');
+        if (!noResultsMsg && container) {
+            noResultsMsg = document.createElement('div');
+            noResultsMsg.id = 'no-results-msg';
+            noResultsMsg.style.cssText = 'text-align: center; padding: 4rem; color: var(--gray);';
+            noResultsMsg.innerHTML = `
+                <i class="fas fa-search" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p>Không tìm thấy flashcard nào với bộ lọc hiện tại.</p>
+            `;
+            container.appendChild(noResultsMsg);
+        }
+    }
+}
+
+function showCard(index) {
+    // Kiểm tra allCards có rỗng không
+    if (!allCards || allCards.length === 0) {
+        console.warn('Không có flashcard nào để hiển thị');
+        // Nếu không có visible cards, thử query lại từ DOM
+        const flashcardDisplayEl = document.getElementById('flashcard-display');
+        if (flashcardDisplayEl) {
+            allCards = Array.from(flashcardDisplayEl.querySelectorAll('.flashcard-single'));
+            if (allCards.length === 0) {
+                return;
+            }
+        } else {
+            return;
+        }
+    }
+    
+    // Kiểm tra index hợp lệ
+    if (index < 0 || index >= allCards.length) {
+        console.warn(`Index ${index} không hợp lệ. Tổng số cards: ${allCards.length}`);
+        if (allCards.length > 0) {
+            index = 0; // Reset về 0 nếu không hợp lệ
+        } else {
+            return; // Không có cards để hiển thị
+        }
+    }
+    
+    // Ẩn TẤT CẢ cards (kể cả không trong allCards) để đảm bảo chỉ hiển thị 1 card
+    const allCardsInDOM = document.querySelectorAll('.flashcard-single');
+    allCardsInDOM.forEach(card => {
+        if (card) {
+            card.classList.remove('active');
+            card.classList.add('hidden');
+            // Reset flip state
+            const flashcard = card.querySelector('.flashcard');
+            if (flashcard) {
+                flashcard.classList.remove('flipped');
+            }
+        }
+    });
+    
+    // Ẩn thông báo không có kết quả nếu có
+    const noResultsMsg = document.getElementById('no-results-msg');
+    if (noResultsMsg) {
+        noResultsMsg.remove();
+    }
+    
+    const flashcardDisplay = document.getElementById('flashcard-display');
+    if (flashcardDisplay) {
+        flashcardDisplay.style.display = 'block';
+    }
+    
+    // Hiển thị CHỈ card tại index (đảm bảo chỉ có 1 card active)
+    if (allCards[index]) {
+        // Đảm bảo card vẫn còn trong DOM
+        if (!allCards[index].parentNode) {
+            console.warn(`Card at index ${index} is not in DOM, refreshing allCards...`);
+            const flashcardDisplayEl = document.getElementById('flashcard-display');
+            if (flashcardDisplayEl) {
+                allCards = Array.from(flashcardDisplayEl.querySelectorAll('.flashcard-single'));
+                if (index >= allCards.length || !allCards[index]) {
+                    console.error(`Cannot show card at index ${index}, total: ${allCards.length}`);
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+        
+        // Xóa class hidden và thêm active
+        allCards[index].classList.remove('hidden');
+        allCards[index].classList.add('active');
+        currentCardIndex = index;
+        
+        // Event listener đã được thêm trong DOMContentLoaded, không cần thêm lại
+        
+        // Cập nhật counter (dùng index trong allCards đã filter)
+        const currentIndexEl = document.getElementById('current-index');
+        const totalCountEl = document.getElementById('total-count');
+        if (currentIndexEl) {
+            currentIndexEl.textContent = index + 1;
+        }
+        if (totalCountEl) {
+            totalCountEl.textContent = allCards.length;
+        }
+        
+        // Cập nhật nút navigation
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        if (prevBtn) {
+            prevBtn.disabled = (index === 0);
+            prevBtn.style.opacity = (index === 0) ? '0.5' : '1';
+            prevBtn.style.cursor = (index === 0) ? 'not-allowed' : 'pointer';
+        }
+        if (nextBtn) {
+            nextBtn.disabled = (index >= allCards.length - 1);
+            nextBtn.style.opacity = (index >= allCards.length - 1) ? '0.5' : '1';
+            nextBtn.style.cursor = (index >= allCards.length - 1) ? 'not-allowed' : 'pointer';
+        }
+    }
+}
+
+function nextCard() {
+    if (allCards.length === 0) {
+        console.warn('Không có flashcard nào');
+        return;
+    }
+    
+    // Tìm index của card hiện tại trong allCards (đã filter)
+    const currentCard = document.querySelector('.flashcard-single.active');
+    if (!currentCard) {
+        // Nếu không tìm thấy active card, hiển thị card đầu tiên
+        showCard(0);
+        return;
+    }
+    
+    const currentId = currentCard.dataset.id;
+    const currentIndex = allCards.findIndex(card => card && card.dataset.id === currentId);
+    
+    if (currentIndex >= 0 && currentIndex < allCards.length - 1) {
+        showCard(currentIndex + 1);
+    } else if (currentIndex < 0 && allCards.length > 0) {
+        // Nếu không tìm thấy trong allCards, hiển thị card đầu tiên
+        showCard(0);
+    } else {
+        console.warn('Đã đến card cuối cùng');
+    }
+}
+
+function previousCard() {
+    if (allCards.length === 0) {
+        console.warn('Không có flashcard nào');
+        return;
+    }
+    
+    // Tìm index của card hiện tại trong allCards (đã filter)
+    const currentCard = document.querySelector('.flashcard-single.active');
+    if (!currentCard) {
+        // Nếu không tìm thấy active card, hiển thị card đầu tiên
+        showCard(0);
+        return;
+    }
+    
+    const currentId = currentCard.dataset.id;
+    const currentIndex = allCards.findIndex(card => card && card.dataset.id === currentId);
+    
+    if (currentIndex > 0) {
+        showCard(currentIndex - 1);
+    } else if (currentIndex < 0 && allCards.length > 0) {
+        // Nếu không tìm thấy trong allCards, hiển thị card đầu tiên
+        showCard(0);
+    } else {
+        console.warn('Đã đến card đầu tiên');
+    }
+}
+
+function toggleFavorite(id) {
+    fetch(`/api/flashcard/${id}`, {
+        method: 'GET'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const favorite = !data.flashcard.favorite;
+            return fetch(`/api/flashcard/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({favorite: favorite})
+            });
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            showToast(data.flashcard.favorite ? 'Đã thêm vào yêu thích' : 'Đã bỏ yêu thích', 'success');
+            // Cập nhật UI mà không reload - sửa selector để tìm đúng element
+            const card = document.querySelector(`.flashcard-single[data-id="${id}"]`);
+            if (card) {
+                card.dataset.favorite = data.flashcard.favorite ? 'true' : 'false';
+                const heartBtn = card.querySelector('button[onclick*="toggleFavorite"]');
+                if (heartBtn) {
+                    const heartIcon = heartBtn.querySelector('i');
+                    if (heartIcon) {
+                        if (data.flashcard.favorite) {
+                            heartIcon.className = 'fas fa-heart';
+                            heartBtn.style.color = 'red';
+                        } else {
+                            heartIcon.className = 'fas fa-heart-o';
+                            heartBtn.style.color = 'white';
+                        }
+                    }
+                }
+                // Áp dụng lại filter
+                filterFlashcards();
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Error toggling favorite:', err);
+        showToast('Lỗi khi cập nhật yêu thích', 'error');
+    });
+}
+
+function playAudio(audioUrl) {
+    if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.play().catch(err => {
+            console.error('Error playing audio:', err);
+            showToast('Không thể phát audio', 'error');
+        });
+    } else {
+        showToast('Không có audio cho từ này', 'info');
+    }
+}
+
+function markLearned(id) {
+    fetch(`/api/flashcard/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({learned: true, not_learned: false})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            showToast('Đã đánh dấu là đã học', 'success');
+            const card = document.querySelector(`.flashcard-single[data-id="${id}"]`);
+            if (card) {
+                card.dataset.learned = 'true';
+                card.dataset.notLearned = 'false';
+            }
+            // Cập nhật lại allCardsOriginal từ DOM và filter lại
+            const flashcardDisplayEl = document.getElementById('flashcard-display');
+            if (flashcardDisplayEl) {
+                allCardsOriginal = Array.from(flashcardDisplayEl.querySelectorAll('.flashcard-single'));
+            } else {
+                allCardsOriginal = Array.from(document.querySelectorAll('.flashcard-single'));
+            }
+            filterFlashcards();
+        }
+    })
+    .catch(err => {
+        console.error('Error marking learned:', err);
+        showToast('Lỗi khi cập nhật trạng thái', 'error');
+    });
+}
+
+function markNotLearned(id) {
+    fetch(`/api/flashcard/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({not_learned: true, learned: false})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            showToast('Đã đánh dấu là chưa thuộc', 'success');
+            const card = document.querySelector(`.flashcard-single[data-id="${id}"]`);
+            if (card) {
+                card.dataset.notLearned = 'true';
+                card.dataset.learned = 'false';
+            }
+            // Cập nhật lại allCardsOriginal từ DOM và filter lại
+            const flashcardDisplayEl = document.getElementById('flashcard-display');
+            if (flashcardDisplayEl) {
+                allCardsOriginal = Array.from(flashcardDisplayEl.querySelectorAll('.flashcard-single'));
+            } else {
+                allCardsOriginal = Array.from(document.querySelectorAll('.flashcard-single'));
+            }
+            filterFlashcards();
+        }
+    })
+    .catch(err => {
+        console.error('Error marking not learned:', err);
+        showToast('Lỗi khi cập nhật trạng thái', 'error');
+    });
+}
+
+function editFlashcard(id) {
+    currentEditId = id;
+    fetch(`/api/flashcard/${id}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.success) {
+                const originalEl = document.getElementById('edit-original');
+                const translatedEl = document.getElementById('edit-translated');
+                const notesEl = document.getElementById('edit-notes');
+                const modalEl = document.getElementById('edit-modal');
+                
+                if (originalEl) originalEl.value = data.flashcard.original || '';
+                if (translatedEl) translatedEl.value = data.flashcard.translated || '';
+                if (notesEl) notesEl.value = data.flashcard.notes || '';
+                if (modalEl) modalEl.style.display = 'flex';
+            }
+        })
+        .catch(err => {
+            console.error('Error loading flashcard:', err);
+            showToast('Lỗi khi tải thông tin flashcard', 'error');
+        });
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+    currentEditId = null;
+}
+
+function saveEdit() {
+    if (!currentEditId) {
+        showToast('Không có flashcard nào được chọn', 'error');
+        return;
+    }
+    
+    const originalEl = document.getElementById('edit-original');
+    const translatedEl = document.getElementById('edit-translated');
+    const notesEl = document.getElementById('edit-notes');
+    
+    if (!originalEl || !translatedEl) {
+        showToast('Lỗi: Không tìm thấy các trường nhập liệu', 'error');
+        return;
+    }
+    
+    fetch(`/api/flashcard/${currentEditId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            original: originalEl.value.trim(),
+            translated: translatedEl.value.trim(),
+            notes: notesEl ? notesEl.value.trim() : ''
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            showToast('Đã cập nhật flashcard', 'success');
+            closeEditModal();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(data.error || 'Lỗi khi cập nhật flashcard', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error saving flashcard:', err);
+        showToast('Lỗi kết nối khi cập nhật', 'error');
+    });
+}
+
+function deleteFlashcard(id) {
+    if (!confirm('Bạn có chắc muốn xóa flashcard này?')) return;
+    
+    fetch(`/api/flashcard/${id}`, {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            showToast('Đã xóa flashcard', 'success');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(data.error || 'Lỗi khi xóa flashcard', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error deleting flashcard:', err);
+        showToast('Lỗi kết nối khi xóa', 'error');
+    });
+}
+
+function addToQuiz(id) {
+    window.location.href = `/learn?mode=quiz&card=${id}`;
+}
+
+function deleteAllFlashcards() {
+    if (!confirm('⚠️  BẠN CÓ CHẮC MUỐN XÓA TẤT CẢ FLASHCARD?\n\nHành động này không thể hoàn tác!')) {
+        return;
+    }
+    
+    // Xác nhận lần 2
+    if (!confirm('⚠️  XÁC NHẬN LẦN CUỐI:\n\nBạn có chắc chắn muốn xóa TẤT CẢ flashcard?')) {
+        return;
+    }
+    
+    showToast('Đang xóa tất cả flashcard...', 'info');
+    
+    fetch('/api/flashcards', {
+        method: 'DELETE'
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            showToast('Đã xóa toàn bộ flashcard', 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error || 'Lỗi khi xóa flashcard', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error deleting all flashcards:', err);
+        showToast('Lỗi kết nối khi xóa', 'error');
+    });
+}
+</script>
+{% endblock %}
+

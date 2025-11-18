@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Học tập - OCR Flashcard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mode-selector {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .mode-btn {
+        flex: 1;
+        min-width: 150px;
+        padding: 1.5rem;
+        background: white;
+        border: 2px solid var(--border);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+    }
+    
+    .mode-btn:hover,
+    .mode-btn.active {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: white;
+    }
+    
+    .stats-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .typing-input {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.5rem;
+        border: 2px solid var(--border);
+        border-radius: 0.5rem;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .flash-mode-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Mode Selector -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-graduation-cap"></i> Học tập
+            </h2>
+        </div>
+        <div class="mode-selector">
+            <div class="mode-btn active" data-mode="quiz" onclick="switchMode('quiz')">
+                <i class="fas fa-question-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                <div>Trắc nghiệm</div>
+            </div>
+            <div class="mode-btn" data-mode="typing" onclick="switchMode('typing')">
+                <i class="fas fa-keyboard" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                <div>Điền từ</div>
+            </div>
+            <div class="mode-btn" data-mode="flash" onclick="switchMode('flash')">
+                <i class="fas fa-bolt" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                <div>Lật thẻ nhanh</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+        <div id="stats-section" class="stats-section">
+            <!-- Stats will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Quiz Mode -->
+    <div id="quiz-mode" class="card">
+        <div class="quiz-container">
+            <div class="quiz-question" id="quiz-question">
+                Chọn nghĩa đúng cho từ:
+            </div>
+            <div id="quiz-word" style="font-size: 2rem; font-weight: bold; text-align: center; margin-bottom: 2rem; color: var(--primary);"></div>
+            <div class="quiz-options" id="quiz-options">
+                <!-- Options will be loaded here -->
+            </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <button class="btn btn-primary" id="next-quiz-btn" onclick="nextQuiz()" style="display: none;">
+                    Tiếp theo <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Typing Mode -->
+    <div id="typing-mode" class="card" style="display: none;">
+        <div class="quiz-container">
+            <div class="quiz-question">
+                Gõ từ tiếng Anh cho nghĩa:
+            </div>
+            <div id="typing-meaning" style="font-size: 1.5rem; text-align: center; margin: 2rem 0; color: var(--primary);"></div>
+            <input type="text" class="typing-input" id="typing-input" placeholder="Gõ từ ở đây..." onkeypress="handleTypingEnter(event)">
+            <div style="text-align: center; margin-top: 1rem;">
+                <button class="btn btn-primary" onclick="checkTyping()">
+                    Kiểm tra <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-outline" onclick="nextTyping()" style="margin-left: 0.5rem;">
+                    Bỏ qua <i class="fas fa-forward"></i>
+                </button>
+            </div>
+            <div id="typing-result" style="text-align: center; margin-top: 1rem; font-size: 1.2rem;"></div>
+        </div>
+    </div>
+
+    <!-- Flash Mode -->
+    <div id="flash-mode" class="card" style="display: none;">
+        <div class="flash-mode-container">
+            <div class="flashcard" id="flash-card">
+                <div class="flashcard-inner">
+                    <div class="flashcard-front">
+                        <div class="flashcard-word" id="flash-word"></div>
+                    </div>
+                    <div class="flashcard-back">
+                        <div class="flashcard-meaning" id="flash-meaning"></div>
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 2rem;">
+                <button class="btn btn-danger" onclick="markWrong()">
+                    <i class="fas fa-times"></i> Sai
+                </button>
+                <button class="btn btn-primary" onclick="flipFlashCard()">
+                    <i class="fas fa-sync"></i> Lật thẻ
+                </button>
+                <button class="btn btn-success" onclick="markCorrect()">
+                    <i class="fas fa-check"></i> Đúng
+                </button>
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+                <button class="btn btn-outline" onclick="nextFlash()">
+                    Tiếp theo <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentMode = 'quiz';
+let currentFlashcards = [];
+let currentIndex = 0;
+let quizOptions = [];
+
+// Load stats
+fetch('/api/stats')
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const stats = data.stats;
+            const statsSection = document.getElementById('stats-section');
+            if (statsSection) {
+                statsSection.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.total || 0}</div>
+                        <div class="stat-label">Tổng số từ</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.reviewed || 0}</div>
+                        <div class="stat-label">Đã ôn tập</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.accuracy || 0}%</div>
+                        <div class="stat-label">Độ chính xác</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${stats.favorites || 0}</div>
+                        <div class="stat-label">Yêu thích</div>
+                    </div>
+                `;
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Error loading stats:', err);
+    });
+
+// Load flashcards
+fetch('/api/flashcards')
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            currentFlashcards = data.flashcards || [];
+            if (currentMode === 'quiz') {
+                startQuiz();
+            } else if (currentMode === 'typing') {
+                startTyping();
+            } else if (currentMode === 'flash') {
+                startFlash();
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Error loading flashcards:', err);
+        showToast('Lỗi tải flashcard', 'error');
+    });
+
+function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.mode === mode) {
+            btn.classList.add('active');
+        }
+    });
+    
+    const quizMode = document.getElementById('quiz-mode');
+    const typingMode = document.getElementById('typing-mode');
+    const flashMode = document.getElementById('flash-mode');
+    
+    if (quizMode) quizMode.style.display = mode === 'quiz' ? 'block' : 'none';
+    if (typingMode) typingMode.style.display = mode === 'typing' ? 'block' : 'none';
+    if (flashMode) flashMode.style.display = mode === 'flash' ? 'block' : 'none';
+    
+    if (mode === 'quiz') startQuiz();
+    else if (mode === 'typing') startTyping();
+    else if (mode === 'flash') startFlash();
+}
+
+function startQuiz() {
+    if (currentFlashcards.length === 0) {
+        const quizWord = document.getElementById('quiz-word');
+        if (quizWord) quizWord.textContent = 'Chưa có flashcard nào';
+        return;
+    }
+    currentIndex = Math.floor(Math.random() * currentFlashcards.length);
+    loadQuiz();
+}
+
+function loadQuiz() {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const card = currentFlashcards[currentIndex];
+    const quizWord = document.getElementById('quiz-word');
+    const quizOptionsDiv = document.getElementById('quiz-options');
+    const nextQuizBtn = document.getElementById('next-quiz-btn');
+    
+    if (!quizWord || !quizOptionsDiv) return;
+    
+    quizWord.textContent = card.original || '';
+    
+    // Generate options
+    const options = [card.translated];
+    const otherCards = currentFlashcards.filter((c, i) => i !== currentIndex);
+    const shuffled = otherCards.sort(() => 0.5 - Math.random()).slice(0, 3);
+    shuffled.forEach(c => options.push(c.translated));
+    quizOptions = options.sort(() => 0.5 - Math.random());
+    
+    quizOptionsDiv.innerHTML = quizOptions.map((opt, i) => `
+        <div class="quiz-option" onclick="selectOption(${i}, '${opt === card.translated}')">${opt || ''}</div>
+    `).join('');
+    
+    if (nextQuizBtn) nextQuizBtn.style.display = 'none';
+}
+
+function selectOption(index, isCorrect) {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const options = document.querySelectorAll('.quiz-option');
+    const card = currentFlashcards[currentIndex];
+    if (!card) return;
+    
+    const correctAnswer = card.translated;
+    const isCorrectBool = isCorrect === 'true';
+    
+    // Vô hiệu hóa tất cả các option
+    options.forEach((opt, i) => {
+        opt.onclick = null;
+        opt.style.cursor = 'default';
+        
+        // Nếu là đáp án người dùng chọn
+        if (i === index) {
+            if (isCorrectBool) {
+                // Chọn đúng → màu xanh
+                opt.classList.add('correct');
+                opt.style.background = '#10b981'; // Màu xanh
+                opt.style.color = 'white';
+                opt.style.borderColor = '#10b981';
+            } else {
+                // Chọn sai → màu đỏ
+                opt.classList.add('wrong');
+                opt.style.background = '#ef4444'; // Màu đỏ
+                opt.style.color = 'white';
+                opt.style.borderColor = '#ef4444';
+            }
+        }
+        
+        // Highlight đáp án đúng (nếu người dùng chọn sai)
+        if (!isCorrectBool && opt.textContent.trim() === correctAnswer.trim()) {
+            opt.classList.add('correct');
+            opt.style.background = '#10b981'; // Màu xanh cho đáp án đúng
+            opt.style.color = 'white';
+            opt.style.borderColor = '#10b981';
+        }
+    });
+    
+    // Update review
+    if (card.id) {
+        fetch('/api/review', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                card_id: card.id,
+                is_correct: isCorrectBool
+            })
+        }).catch(err => console.error('Error updating review:', err));
+    }
+    
+    const nextQuizBtn = document.getElementById('next-quiz-btn');
+    if (nextQuizBtn) {
+        nextQuizBtn.style.display = 'block';
+    }
+}
+
+function nextQuiz() {
+    startQuiz();
+}
+
+function startTyping() {
+    if (currentFlashcards.length === 0) {
+        const typingMeaning = document.getElementById('typing-meaning');
+        if (typingMeaning) typingMeaning.textContent = 'Chưa có flashcard nào';
+        return;
+    }
+    currentIndex = Math.floor(Math.random() * currentFlashcards.length);
+    loadTyping();
+}
+
+function loadTyping() {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const card = currentFlashcards[currentIndex];
+    if (!card) return;
+    
+    const typingMeaning = document.getElementById('typing-meaning');
+    const typingInput = document.getElementById('typing-input');
+    const typingResult = document.getElementById('typing-result');
+    
+    if (typingMeaning) typingMeaning.textContent = card.translated || '';
+    if (typingInput) {
+        typingInput.value = '';
+        typingInput.focus();
+    }
+    if (typingResult) typingResult.textContent = '';
+}
+
+function handleTypingEnter(e) {
+    if (e.key === 'Enter') {
+        checkTyping();
+    }
+}
+
+function checkTyping() {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const card = currentFlashcards[currentIndex];
+    if (!card) return;
+    
+    const typingInput = document.getElementById('typing-input');
+    const resultDiv = document.getElementById('typing-result');
+    
+    if (!typingInput || !resultDiv) return;
+    
+    const input = typingInput.value.trim().toLowerCase();
+    const correct = (card.original || '').toLowerCase();
+    
+    if (input === correct) {
+        resultDiv.innerHTML = '<span style="color: var(--success);"><i class="fas fa-check-circle"></i> Đúng!</span>';
+        if (card.id) {
+            fetch('/api/review', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    card_id: card.id,
+                    is_correct: true
+                })
+            }).catch(err => console.error('Error updating review:', err));
+        }
+    } else {
+        resultDiv.innerHTML = `<span style="color: var(--danger);"><i class="fas fa-times-circle"></i> Sai! Đáp án: ${card.original || ''}</span>`;
+        if (card.id) {
+            fetch('/api/review', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    card_id: card.id,
+                    is_correct: false
+                })
+            }).catch(err => console.error('Error updating review:', err));
+        }
+    }
+}
+
+function nextTyping() {
+    startTyping();
+}
+
+function startFlash() {
+    if (currentFlashcards.length === 0) {
+        const flashWord = document.getElementById('flash-word');
+        const flashMeaning = document.getElementById('flash-meaning');
+        if (flashWord) flashWord.textContent = 'Chưa có flashcard nào';
+        if (flashMeaning) flashMeaning.textContent = '';
+        return;
+    }
+    currentIndex = Math.floor(Math.random() * currentFlashcards.length);
+    loadFlash();
+}
+
+function loadFlash() {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const card = currentFlashcards[currentIndex];
+    if (!card) return;
+    
+    const flashWord = document.getElementById('flash-word');
+    const flashMeaning = document.getElementById('flash-meaning');
+    const flashCard = document.getElementById('flash-card');
+    
+    if (flashWord) flashWord.textContent = card.original || '';
+    if (flashMeaning) flashMeaning.textContent = card.translated || '';
+    if (flashCard) flashCard.classList.remove('flipped');
+}
+
+function flipFlashCard() {
+    const flashCard = document.getElementById('flash-card');
+    if (flashCard) flashCard.classList.toggle('flipped');
+}
+
+function markCorrect() {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const card = currentFlashcards[currentIndex];
+    if (!card || !card.id) return;
+    
+    fetch('/api/review', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            card_id: card.id,
+            is_correct: true
+        })
+    }).catch(err => console.error('Error updating review:', err));
+    nextFlash();
+}
+
+function markWrong() {
+    if (currentIndex < 0 || currentIndex >= currentFlashcards.length) {
+        return;
+    }
+    const card = currentFlashcards[currentIndex];
+    if (!card || !card.id) return;
+    
+    fetch('/api/review', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            card_id: card.id,
+            is_correct: false
+        })
+    }).catch(err => console.error('Error updating review:', err));
+    nextFlash();
+}
+
+function nextFlash() {
+    startFlash();
+}
+</script>
+{% endblock %}
+
